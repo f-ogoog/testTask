@@ -16,39 +16,38 @@ export class AppService {
   async getFilm(title: string) {
     if (!title) throw new BadRequestException('Title should not be empty');
 
-    const key = `film:${title}`
+    const key = `film:${title}`;
 
     const sameRequest = this.ongoingRequests.get(key);
-    if (sameRequest) {
-      await sameRequest;
-    }
+    if (sameRequest) await sameRequest;
 
     if (this.memoryCache.has(key)) return this.memoryCache.get(key);
 
     const redisCache = await this.redisService.get(key);
     if (redisCache) return redisCache;
-    
+
     const result = this.cacheFilm(title, key).finally(() => {
-      this.ongoingRequests.delete(key)
+      this.ongoingRequests.delete(key);
     });
 
     this.ongoingRequests.set(key, result);
     return result;
   }
 
-  async cacheFilm (title: string, key: string) {
+  async cacheFilm(title: string, key: string) {
     const film = await this.prismaService.film.findFirst({
       where: { title },
     });
 
-    if (!film) throw new BadRequestException('Film with such title does not exist');
+    if (!film)
+      throw new BadRequestException('Film with such title does not exist');
 
     this.memoryCache.set(key, film);
     setTimeout(() => {
       this.memoryCache.delete(key);
     }, 15000);
 
-    await this.redisService.set(key, film,  30000);
+    await this.redisService.set(key, film, 30000);
 
     return film;
   }
